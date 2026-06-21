@@ -1,5 +1,18 @@
 {
-  "itemGroup.ourthoughtsareone": "Example Mod Tab",
-  "block.ourthoughtsareone.example_block": "Example Block",
-  "item.ourthoughtsareone.example_item": "Example Item"
+  "itemGroup.ourthoughtsareone": "Our Thoughts Are One",
+  "item.ourthoughtsareone.projection_core": "Projection Core",
+  "item.ourthoughtsareone.flight_core": "Flight Core",
+  "hint.ourthoughtsareone.projection.mount": "You projected onto %s",
+  "hint.ourthoughtsareone.projection.mounted": "%s projected onto you",
+  "hint.ourthoughtsareone.projection.dismount": "The link has been released",
+  "hint.ourthoughtsareone.projection.failed": "Unable to establish projection link",
+  "hint.ourthoughtsareone.flight.invite_sent": "Sent a link invite to %s",
+  "hint.ourthoughtsareone.flight.invite_received": "%s invites you to establish a flight link — [Right-click to accept]",
+  "hint.ourthoughtsareone.flight.invite_failed": "Unable to send link invite",
+  "hint.ourthoughtsareone.flight.accepted": "%s accepted your link",
+  "hint.ourthoughtsareone.flight.declined": "%s declined your link invite",
+  "hint.ourthoughtsareone.flight.decline_done": "You declined the link invite",
+  "hint.ourthoughtsareone.flight.link_started": "You are being pulled by %s's light chain",
+  "hint.ourthoughtsareone.flight.link_broken": "The link has broken",
+  "hint.ourthoughtsareone.flight.blocked": "The light chain is blocked and becoming unstable"
 }

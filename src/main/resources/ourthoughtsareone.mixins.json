@@ -4,6 +4,8 @@
   "package": "com.whisent.ourthoughtsareone.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "PlayerMixin",
+    "LivingEntityMixin"
   ],
   "client": [
   ],
