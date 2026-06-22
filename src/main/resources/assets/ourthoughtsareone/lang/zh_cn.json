@@ -1,0 +1,18 @@
+{
+  "itemGroup.ourthoughtsareone": "我们意念合一",
+  "item.ourthoughtsareone.projection_core": "投射核心",
+  "item.ourthoughtsareone.flight_core": "飞行核心",
+  "hint.ourthoughtsareone.projection.mount": "你已投射至 %s 身上",
+  "hint.ourthoughtsareone.projection.mounted": "%s 已投射至你身上",
+  "hint.ourthoughtsareone.projection.dismount": "联结已解除",
+  "hint.ourthoughtsareone.projection.failed": "无法建立投射联结",
+  "hint.ourthoughtsareone.flight.invite_sent": "已向 %s 发出链接邀请",
+  "hint.ourthoughtsareone.flight.invite_received": "%s 邀请你建立飞行链接 — [右键 接受]",
+  "hint.ourthoughtsareone.flight.invite_failed": "无法发出链接邀请",
+  "hint.ourthoughtsareone.flight.accepted": "%s 接受了你的链接",
+  "hint.ourthoughtsareone.flight.declined": "%s 婉拒了你的链接邀请",
+  "hint.ourthoughtsareone.flight.decline_done": "你婉拒了链接邀请",
+  "hint.ourthoughtsareone.flight.link_started": "你已被 %s 的光链牵引",
+  "hint.ourthoughtsareone.flight.link_broken": "链接已断开",
+  "hint.ourthoughtsareone.flight.blocked": "光链被方块阻隔，正在变得不稳定"
+}

@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "A": "minecraft:amethyst_shard",
+    "E": "minecraft:ender_pearl",
+    "I": "minecraft:iron_ingot",
+    "N": "minecraft:nether_star"
+  },
+  "pattern": [
+    "EAE",
+    "INI",
+    "EAE"
+  ],
+  "result": {
+    "id": "ourthoughtsareone:projection_core"
+  }
+}

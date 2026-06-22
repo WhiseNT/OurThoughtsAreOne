@@ -6,14 +6,17 @@ import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
+import javax.annotation.Nullable;
 import java.util.UUID;
 
 public class FlightLinkEntity extends Entity {
@@ -22,9 +25,11 @@ public class FlightLinkEntity extends Entity {
 
     private UUID ownerUUID;
     private UUID targetUUID;
-    private Vec3 lastOwnerPoint = Vec3.ZERO;
-    private Vec3 lastTargetPoint = Vec3.ZERO;
-    private boolean hasLastLinkPoints;
+
+    // Client-side: true only when both endpoints were resolved this tick
+    private boolean endpointsValid;
+    private Vec3 ownerPoint = Vec3.ZERO;
+    private Vec3 targetPoint = Vec3.ZERO;
 
     public FlightLinkEntity(EntityType<?> entityType, Level level) {
         super(entityType, level);
@@ -37,7 +42,7 @@ public class FlightLinkEntity extends Entity {
         targetUUID = target.getUUID();
         entityData.set(OWNER_ID, owner.getId());
         entityData.set(TARGET_ID, target.getId());
-        syncToMiddle(owner, target);
+        updatePosition(owner, target);
     }
 
     @Override
@@ -47,11 +52,7 @@ public class FlightLinkEntity extends Entity {
         setNoGravity(true);
 
         if (level().isClientSide()) {
-            Entity owner = getSyncedOwner();
-            Entity target = getSyncedTarget();
-            if (owner != null && target != null) {
-                syncToMiddle(owner, target);
-            }
+            tickClient();
             return;
         }
 
@@ -71,83 +72,121 @@ public class FlightLinkEntity extends Entity {
             discard();
             return;
         }
-        syncToMiddle(owner, target);
+        updatePosition(owner, target);
     }
 
-    private void syncToMiddle(Entity owner, Entity target) {
-        Vec3 from = linkPoint(owner);
-        Vec3 to = linkPoint(target);
-        if (!isValidPoint(from) || !isValidPoint(to)) {
-            return;
+    private void tickClient() {
+        Entity owner = getClientEntity(entityData.get(OWNER_ID));
+        Entity target = getClientEntity(entityData.get(TARGET_ID));
+        if (owner != null && target != null) {
+            Vec3 from = computeLinkPoint(owner);
+            Vec3 to = computeLinkPoint(target);
+            if (isFinite(from) && isFinite(to)) {
+                ownerPoint = from;
+                targetPoint = to;
+                endpointsValid = true;
+                absSnapTo(from.x, from.y, from.z, 0.0F, 0.0F);
+                setDeltaMovement(Vec3.ZERO);
+                return;
+            }
         }
-        lastOwnerPoint = from;
-        lastTargetPoint = to;
-        hasLastLinkPoints = true;
-        Vec3 mid = from.add(to).scale(0.5);
-        absSnapTo(mid.x, mid.y, mid.z, 0.0F, 0.0F);
+        // This tick we couldn't resolve both endpoints — mark invalid
+        endpointsValid = false;
+    }
+
+    private void updatePosition(Entity owner, Entity target) {
+        Vec3 from = computeLinkPoint(owner);
+        Vec3 to = computeLinkPoint(target);
+        if (!isFinite(from) || !isFinite(to)) return;
+        ownerPoint = from;
+        targetPoint = to;
+        endpointsValid = true;
+        absSnapTo(from.x, from.y, from.z, 0.0F, 0.0F);
         setDeltaMovement(Vec3.ZERO);
     }
 
-    private boolean isValidPoint(Vec3 point) {
-        return Double.isFinite(point.x) && Double.isFinite(point.y) && Double.isFinite(point.z);
+    // --- Public accessors for the renderer ---
+
+    public boolean areEndpointsValid() {
+        return endpointsValid;
     }
 
-    private Vec3 linkPoint(Entity entity) {
+    /**
+     * Returns the interpolated owner link point, or null if endpoints are not valid this tick.
+     */
+    @Nullable
+    public Vec3 getOwnerLinkPoint(float partialTicks) {
+        if (!endpointsValid) return null;
+        Entity owner = getClientEntity(entityData.get(OWNER_ID));
+        if (owner != null) {
+            Vec3 point = computeLinkPointLerp(owner, partialTicks);
+            if (isFinite(point)) return point;
+        }
+        // Fallback to last known good position from this tick
+        return isFinite(ownerPoint) ? ownerPoint : null;
+    }
+
+    /**
+     * Returns the interpolated target link point, or null if endpoints are not valid this tick.
+     */
+    @Nullable
+    public Vec3 getTargetLinkPoint(float partialTicks) {
+        if (!endpointsValid) return null;
+        Entity target = getClientEntity(entityData.get(TARGET_ID));
+        if (target != null) {
+            Vec3 point = computeLinkPointLerp(target, partialTicks);
+            if (isFinite(point)) return point;
+        }
+        return isFinite(targetPoint) ? targetPoint : null;
+    }
+
+    /**
+     * Returns the beam offset vector (target - owner), or null if not valid.
+     */
+    @Nullable
+    public Vec3 getBeamOffset(float partialTicks) {
+        Vec3 from = getOwnerLinkPoint(partialTicks);
+        Vec3 to = getTargetLinkPoint(partialTicks);
+        if (from == null || to == null) return null;
+        Vec3 offset = to.subtract(from);
+        return isFinite(offset) ? offset : null;
+    }
+
+    /**
+     * Returns the AABB that encloses the beam, for culling. Falls back to entity bounding box.
+     */
+    public AABB getBeamBounds(float partialTicks) {
+        Vec3 from = getOwnerLinkPoint(partialTicks);
+        Vec3 to = getTargetLinkPoint(partialTicks);
+        if (from == null || to == null) {
+            return getBoundingBox().inflate(2.0);
+        }
+        return new AABB(from, to).inflate(1.0);
+    }
+
+    // --- Internal helpers ---
+
+    @Nullable
+    private Entity getClientEntity(int id) {
+        return id < 0 ? null : level().getEntity(id);
+    }
+
+    private Vec3 computeLinkPoint(Entity entity) {
         return entity.position().add(0.0, entity.getBbHeight() * 0.65, 0.0);
     }
 
-    public int getSyncedOwnerId() {
-        return entityData.get(OWNER_ID);
-    }
-
-    public int getSyncedTargetId() {
-        return entityData.get(TARGET_ID);
-    }
-
-    private Entity getSyncedOwner() {
-        int id = entityData.get(OWNER_ID);
-        return id < 0 ? null : level().getEntity(id);
-    }
-
-    private Entity getSyncedTarget() {
-        int id = entityData.get(TARGET_ID);
-        return id < 0 ? null : level().getEntity(id);
-    }
-
-    public Vec3 getOwnerLinkPoint(float partialTicks) {
-        Entity owner = getSyncedOwner();
-        if (owner != null) {
-            Vec3 point = linkPoint(owner, partialTicks);
-            if (isValidPoint(point)) {
-                lastOwnerPoint = point;
-                return point;
-            }
-        }
-        return lastOwnerPoint;
-    }
-
-    public Vec3 getTargetLinkPoint(float partialTicks) {
-        Entity target = getSyncedTarget();
-        if (target != null) {
-            Vec3 point = linkPoint(target, partialTicks);
-            if (isValidPoint(point)) {
-                lastTargetPoint = point;
-                return point;
-            }
-        }
-        return lastTargetPoint;
-    }
-
-    private Vec3 linkPoint(Entity entity, float partialTicks) {
-        double x = net.minecraft.util.Mth.lerp(partialTicks, entity.xOld, entity.getX());
-        double y = net.minecraft.util.Mth.lerp(partialTicks, entity.yOld, entity.getY()) + entity.getBbHeight() * 0.65;
-        double z = net.minecraft.util.Mth.lerp(partialTicks, entity.zOld, entity.getZ());
+    private Vec3 computeLinkPointLerp(Entity entity, float partialTicks) {
+        double x = Mth.lerp(partialTicks, entity.xOld, entity.getX());
+        double y = Mth.lerp(partialTicks, entity.yOld, entity.getY()) + entity.getBbHeight() * 0.65;
+        double z = Mth.lerp(partialTicks, entity.zOld, entity.getZ());
         return new Vec3(x, y, z);
     }
 
-    public boolean hasUsableLinkPoints() {
-        return hasLastLinkPoints;
+    private static boolean isFinite(Vec3 v) {
+        return v != null && Double.isFinite(v.x) && Double.isFinite(v.y) && Double.isFinite(v.z);
     }
+
+    // --- Synched data ---
 
     @Override
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
@@ -162,6 +201,8 @@ public class FlightLinkEntity extends Entity {
     @Override
     protected void addAdditionalSaveData(ValueOutput output) {
     }
+
+    // --- Non-interactive entity overrides ---
 
     @Override
     public boolean hurtServer(ServerLevel level, DamageSource source, float damage) {

@@ -78,6 +78,11 @@ public class OTAOEventHandler {
 
         Entity target = event.getTarget();
 
+        if (target instanceof ServerPlayer targetPlayer && ProjectionManager.isProjectionPair(player, targetPlayer)) {
+            event.setCanceled(true);
+            return;
+        }
+
         if (!ProjectionManager.canAttack(player) || !FlightManager.canAttack(player)) {
             event.setCanceled(true);
             return;
@@ -146,6 +151,12 @@ public class OTAOEventHandler {
 
     @SubscribeEvent
     public static void onLivingDamage(LivingDamageEvent.Pre event) {
+        if (event.getEntity() instanceof ServerPlayer victim && event.getSource().getEntity() instanceof ServerPlayer attacker) {
+            if (ProjectionManager.isProjectionPair(attacker, victim)) {
+                event.setNewDamage(0.0F);
+                return;
+            }
+        }
         float newDamage = ProjectionManager.handleDamageShare(event.getEntity(), event.getNewDamage());
         event.setNewDamage(newDamage);
     }

@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "E": "minecraft:ender_pearl",
+    "F": "minecraft:feather",
+    "G": "minecraft:gold_ingot",
+    "N": "minecraft:nether_star",
+    "P": "minecraft:phantom_membrane"
+  },
+  "pattern": [
+    "PFP",
+    "GNG",
+    "GEF"
+  ],
+  "result": {
+    "id": "ourthoughtsareone:flight_core"
+  }
+}
